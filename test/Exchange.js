@@ -1,8 +1,3 @@
-const {
-  time,
-  loadFixture,
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
@@ -11,17 +6,25 @@ const toWei = (value) => ethers.parseEther(value.toString());
 const fromWei = (value) =>
   ethers.formatEther(typeof value === "string" ? value : value.toString());
 
-/* const createExchange = async (factory, tokenAddress, sender) => {
+const createExchange = async (
+  factory,
+  lpTokenName,
+  lpTokenSymbol,
+  tokenAddress,
+  sender
+) => {
   const exchangeAddress = await factory
     .connect(sender)
-    .callStatic.createExchange(tokenAddress);
+    .createExchange.staticCall(lpTokenName, lpTokenSymbol, tokenAddress);
 
-  await factory.connect(sender).createExchange(tokenAddress);
+  await factory
+    .connect(sender)
+    .createExchange(lpTokenName, lpTokenSymbol, tokenAddress);
 
   const Exchange = await ethers.getContractFactory("Exchange");
 
   return await Exchange.attach(exchangeAddress);
-}; */
+};
 
 describe("Exchange", () => {
   let owner;
@@ -256,74 +259,78 @@ describe("Exchange", () => {
       expect(fromWei(ethOut)).to.equal("495.0");
     });
   });
-  /*
+
   describe("ethToTokenTransfer", async () => {
     beforeEach(async () => {
-      await token.approve(exchange.address, toWei(2000));
+      await token.approve(exchangeAddress, toWei(2000));
       await exchange.addLiquidity(toWei(2000), { value: toWei(1000) });
     });
 
     it("transfers at least min amount of tokens to recipient", async () => {
-      const userBalanceBefore = await getBalance(user.address);
+      const userBalanceBefore = await ethers.provider.getBalance(user.address);
 
       await exchange
         .connect(user)
         .ethToTokenTransfer(toWei(1.97), user.address, { value: toWei(1) });
 
-      const userBalanceAfter = await getBalance(user.address);
-      expect(fromWei(userBalanceAfter.sub(userBalanceBefore))).to.equal(
-        "-1.000000000062013"
+      const userBalanceAfter = await ethers.provider.getBalance(user.address);
+      expect(fromWei(userBalanceAfter - userBalanceBefore)).to.equal(
+        "-1.000061817337699515"
       );
 
       const userTokenBalance = await token.balanceOf(user.address);
-      expect(fromWei(userTokenBalance)).to.equal("1.978041738678708079");
+      expect(fromWei(userTokenBalance)).to.equal("1.978021978021978021");
 
-      const exchangeEthBalance = await getBalance(exchange.address);
+      const exchangeEthBalance = await ethers.provider.getBalance(
+        exchangeAddress
+      );
       expect(fromWei(exchangeEthBalance)).to.equal("1001.0");
 
-      const exchangeTokenBalance = await token.balanceOf(exchange.address);
-      expect(fromWei(exchangeTokenBalance)).to.equal("1998.021958261321291921");
+      const exchangeTokenBalance = await token.balanceOf(exchangeAddress);
+      expect(fromWei(exchangeTokenBalance)).to.equal("1998.021978021978021979");
     });
   });
 
   describe("ethToTokenSwap", async () => {
     beforeEach(async () => {
-      await token.approve(exchange.address, toWei(2000));
+      await token.approve(exchangeAddress, toWei(2000));
       await exchange.addLiquidity(toWei(2000), { value: toWei(1000) });
     });
 
     it("transfers at least min amount of tokens", async () => {
-      const userBalanceBefore = await getBalance(user.address);
+      const userBalanceBefore = await ethers.provider.getBalance(user.address);
 
       await exchange
         .connect(user)
         .ethToTokenSwap(toWei(1.97), { value: toWei(1) });
 
-      const userBalanceAfter = await getBalance(user.address);
-      expect(fromWei(userBalanceAfter.sub(userBalanceBefore))).to.equal(
-        "-1.000000000061531"
+      const userBalanceAfter = await ethers.provider.getBalance(user.address);
+      expect(fromWei(userBalanceAfter - userBalanceBefore)).to.equal(
+        "-1.000061329520781205"
       );
 
       const userTokenBalance = await token.balanceOf(user.address);
-      expect(fromWei(userTokenBalance)).to.equal("1.978041738678708079");
+      expect(fromWei(userTokenBalance)).to.equal("1.978021978021978021");
 
-      const exchangeEthBalance = await getBalance(exchange.address);
+      const exchangeEthBalance = await ethers.provider.getBalance(
+        exchangeAddress
+      );
       expect(fromWei(exchangeEthBalance)).to.equal("1001.0");
 
-      const exchangeTokenBalance = await token.balanceOf(exchange.address);
-      expect(fromWei(exchangeTokenBalance)).to.equal("1998.021958261321291921");
+      const exchangeTokenBalance = await token.balanceOf(exchangeAddress);
+      expect(fromWei(exchangeTokenBalance)).to.equal("1998.021978021978021979");
     });
 
     it("affects exchange rate", async () => {
       let tokensOut = await exchange.getTokenAmount(toWei(10));
-      expect(fromWei(tokensOut)).to.equal("19.605901574413308248");
+      expect(fromWei(tokensOut)).to.equal("19.60396039603960396");
 
       await exchange
         .connect(user)
         .ethToTokenSwap(toWei(9), { value: toWei(10) });
 
       tokensOut = await exchange.getTokenAmount(toWei(10));
-      expect(fromWei(tokensOut)).to.equal("19.223356774598792281");
+      expect(fromWei(tokensOut)).to.equal("19.221490972626674432");
     });
 
     it("fails when output amount is less than min amount", async () => {
@@ -340,54 +347,62 @@ describe("Exchange", () => {
       const userTokenBalance = await token.balanceOf(user.address);
       expect(fromWei(userTokenBalance)).to.equal("0.0");
 
-      const exchangeEthBalance = await getBalance(exchange.address);
+      const exchangeEthBalance = await ethers.provider.getBalance(
+        exchangeAddress
+      );
       expect(fromWei(exchangeEthBalance)).to.equal("1000.0");
 
-      const exchangeTokenBalance = await token.balanceOf(exchange.address);
+      const exchangeTokenBalance = await token.balanceOf(exchangeAddress);
       expect(fromWei(exchangeTokenBalance)).to.equal("2000.0");
     });
   });
 
   describe("tokenToEthSwap", async () => {
     beforeEach(async () => {
+      await ethers.provider.send("hardhat_setBalance", [
+        owner.address,
+        "0x152D02C7E14AF6800000",
+      ]);
       await token.transfer(user.address, toWei(22));
-      await token.connect(user).approve(exchange.address, toWei(22));
+      await token.connect(user).approve(exchangeAddress, toWei(22));
 
-      await token.approve(exchange.address, toWei(2000));
+      await token.approve(exchangeAddress, toWei(2000));
       await exchange.addLiquidity(toWei(2000), { value: toWei(1000) });
     });
 
     it("transfers at least min amount of tokens", async () => {
-      const userBalanceBefore = await getBalance(user.address);
-      const exchangeBalanceBefore = await getBalance(exchange.address);
+      const userBalanceBefore = await ethers.provider.getBalance(user.address);
+      const exchangeBalanceBefore = await ethers.provider.getBalance(
+        exchangeAddress
+      );
 
       await exchange.connect(user).tokenToEthSwap(toWei(2), toWei(0.9));
 
-      const userBalanceAfter = await getBalance(user.address);
-      expect(fromWei(userBalanceAfter.sub(userBalanceBefore))).to.equal(
-        "0.989020869279835039"
+      const userBalanceAfter = await ethers.provider.getBalance(user.address);
+      expect(fromWei(userBalanceAfter - userBalanceBefore)).to.equal(
+        "0.988951789622525172"
       );
 
       const userTokenBalance = await token.balanceOf(user.address);
       expect(fromWei(userTokenBalance)).to.equal("20.0");
 
-      const exchangeBalanceAfter = await getBalance(exchange.address);
-      expect(fromWei(exchangeBalanceAfter.sub(exchangeBalanceBefore))).to.equal(
-        "-0.989020869339354039"
+      const exchangeBalanceAfter = await ethers.provider.getBalance(
+        exchangeAddress
+      );
+      expect(fromWei(exchangeBalanceAfter - exchangeBalanceBefore)).to.equal(
+        "-0.98901098901098901"
       );
 
-      const exchangeTokenBalance = await token.balanceOf(exchange.address);
+      const exchangeTokenBalance = await token.balanceOf(exchangeAddress);
       expect(fromWei(exchangeTokenBalance)).to.equal("2002.0");
     });
 
     it("affects exchange rate", async () => {
       let ethOut = await exchange.getEthAmount(toWei(20));
-      expect(fromWei(ethOut)).to.equal("9.802950787206654124");
-
+      expect(fromWei(ethOut)).to.equal("9.80198019801980198");
       await exchange.connect(user).tokenToEthSwap(toWei(20), toWei(9));
-
       ethOut = await exchange.getEthAmount(toWei(20));
-      expect(fromWei(ethOut)).to.equal("9.61167838729939614");
+      expect(fromWei(ethOut)).to.equal("9.610745486313337216");
     });
 
     it("fails when output amount is less than min amount", async () => {
@@ -397,21 +412,23 @@ describe("Exchange", () => {
     });
 
     it("allows zero swaps", async () => {
-      const userBalanceBefore = await getBalance(user.address);
+      const userBalanceBefore = await ethers.provider.getBalance(user.address);
       await exchange.connect(user).tokenToEthSwap(toWei(0), toWei(0));
 
-      const userBalanceAfter = await getBalance(user.address);
-      expect(fromWei(userBalanceAfter.sub(userBalanceBefore))).to.equal(
-        "-0.000000000044275"
+      const userBalanceAfter = await ethers.provider.getBalance(user.address);
+      expect(fromWei(userBalanceAfter - userBalanceBefore)).to.equal(
+        "-0.00004395501977975"
       );
 
       const userTokenBalance = await token.balanceOf(user.address);
       expect(fromWei(userTokenBalance)).to.equal("22.0");
 
-      const exchangeEthBalance = await getBalance(exchange.address);
+      const exchangeEthBalance = await ethers.provider.getBalance(
+        exchangeAddress
+      );
       expect(fromWei(exchangeEthBalance)).to.equal("1000.0");
 
-      const exchangeTokenBalance = await token.balanceOf(exchange.address);
+      const exchangeTokenBalance = await token.balanceOf(exchangeAddress);
       expect(fromWei(exchangeTokenBalance)).to.equal("2000.0");
     });
   });
@@ -429,40 +446,58 @@ describe("Exchange", () => {
         toWei(1000000)
       );
 
-      await factory.deployed();
-      await token.deployed();
-      await token2.deployed();
+      await factory.waitForDeployment();
+      await token.waitForDeployment();
+      await token2.waitForDeployment();
 
-      const exchange = await createExchange(factory, token.address, owner);
-      const exchange2 = await createExchange(factory, token2.address, user);
+      const token1Address = await token.getAddress();
+      const token2Address = await token2.getAddress();
 
-      await token.approve(exchange.address, toWei(2000));
+      const exchange = await createExchange(
+        factory,
+        "LiqProvTokenAETH",
+        "LpTknAEth",
+        token1Address,
+        owner
+      );
+      const exchange2 = await createExchange(
+        factory,
+        "LiqProvTokenBETH",
+        "LpTknBEth",
+        token2Address,
+        user
+      );
+
+      const exchange1Address = await exchange.getAddress();
+      const exchange2Address = await exchange2.getAddress();
+
+      await token.approve(exchange1Address, toWei(2000));
       await exchange.addLiquidity(toWei(2000), { value: toWei(1000) });
 
-      await token2.connect(user).approve(exchange2.address, toWei(1000));
+      await token2.connect(user).approve(exchange2Address, toWei(1000));
       await exchange2
         .connect(user)
         .addLiquidity(toWei(1000), { value: toWei(1000) });
 
       expect(await token2.balanceOf(owner.address)).to.equal(0);
 
-      await token.approve(exchange.address, toWei(10));
-      await exchange.tokenToTokenSwap(toWei(10), toWei(4.8), token2.address);
+      await token.approve(exchange1Address, toWei(10));
+      await exchange.tokenToTokenSwap(toWei(10), toWei(4.8), token2Address);
 
       expect(fromWei(await token2.balanceOf(owner.address))).to.equal(
-        "4.852698493489877956"
+        "4.852220406950839149"
       );
 
       expect(await token.balanceOf(user.address)).to.equal(0);
 
-      await token2.connect(user).approve(exchange2.address, toWei(10));
+      await token2.connect(user).approve(exchange2Address, toWei(10));
       await exchange2
         .connect(user)
-        .tokenToTokenSwap(toWei(10), toWei(19.6), token.address);
+        .tokenToTokenSwap(toWei(10), toWei(19.5), token1Address);
 
       expect(fromWei(await token.balanceOf(user.address))).to.equal(
-        "19.602080509528011079"
+        "19.598200226978514386"
       );
     });
-  });*/
+  });
 });
